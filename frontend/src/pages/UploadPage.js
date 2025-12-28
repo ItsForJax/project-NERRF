@@ -5,7 +5,7 @@ import StatsPanel from '../components/StatsPanel';
 import SuccessModal from '../components/SuccessModal';
 import ErrorModal from '../components/ErrorModal';
 
-const API_URL = process.env.REACT_APP_API_URL || '';
+const API_URL = process.env.REACT_APP_API_URL || 'https://nerrf-backend.ericksondelasoledad.dev/';
 console.warn(API_URL);
 
 function UploadPage() {
