@@ -1,0 +1,402 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Image Upload Service</title>
+    <style>
+        * {
+            margin: 0;
+            padding: 0;
+            box-sizing: border-box;
+        }
+        
+        body {
+            font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Oxygen, Ubuntu, Cantarell, sans-serif;
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            min-height: 100vh;
+            padding: 20px;
+        }
+        
+        .container {
+            max-width: 800px;
+            margin: 0 auto;
+            background: white;
+            border-radius: 12px;
+            box-shadow: 0 20px 60px rgba(0,0,0,0.3);
+            padding: 40px;
+        }
+        
+        h1 {
+            color: #333;
+            margin-bottom: 10px;
+        }
+        
+        .subtitle {
+            color: #666;
+            margin-bottom: 30px;
+        }
+
+        .api-config {
+            background: #f8f9fa;
+            padding: 15px;
+            border-radius: 6px;
+            margin-bottom: 20px;
+        }
+
+        .api-config input {
+            width: 100%;
+            padding: 8px;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+            font-family: monospace;
+        }
+        
+        .upload-area {
+            border: 3px dashed #667eea;
+            border-radius: 8px;
+            padding: 40px;
+            text-align: center;
+            background: #f8f9ff;
+            cursor: pointer;
+            transition: all 0.3s;
+        }
+        
+        .upload-area:hover {
+            background: #f0f2ff;
+            border-color: #764ba2;
+        }
+        
+        .upload-area.dragover {
+            background: #e8ebff;
+            border-color: #764ba2;
+        }
+        
+        input[type="file"] {
+            display: none;
+        }
+        
+        .upload-icon {
+            font-size: 48px;
+            margin-bottom: 10px;
+        }
+        
+        .upload-btn {
+            background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+            color: white;
+            padding: 12px 30px;
+            border: none;
+            border-radius: 6px;
+            font-size: 16px;
+            cursor: pointer;
+            margin-top: 20px;
+            transition: transform 0.2s;
+        }
+        
+        .upload-btn:hover {
+            transform: translateY(-2px);
+        }
+        
+        .upload-btn:disabled {
+            opacity: 0.5;
+            cursor: not-allowed;
+        }
+        
+        .result {
+            margin-top: 20px;
+            padding: 15px;
+            border-radius: 6px;
+            display: none;
+        }
+        
+        .result.success {
+            background: #d4edda;
+            border: 1px solid #c3e6cb;
+            color: #155724;
+        }
+        
+        .result.error {
+            background: #f8d7da;
+            border: 1px solid #f5c6cb;
+            color: #721c24;
+        }
+        
+        .result.info {
+            background: #d1ecf1;
+            border: 1px solid #bee5eb;
+            color: #0c5460;
+        }
+        
+        .stats {
+            margin-top: 30px;
+            padding: 20px;
+            background: #f8f9fa;
+            border-radius: 6px;
+        }
+        
+        .stats h3 {
+            margin-bottom: 15px;
+            color: #333;
+        }
+        
+        .stat-item {
+            display: flex;
+            justify-content: space-between;
+            padding: 8px 0;
+            border-bottom: 1px solid #dee2e6;
+        }
+        
+        .stat-item:last-child {
+            border-bottom: none;
+        }
+        
+        .preview {
+            margin-top: 20px;
+            text-align: center;
+        }
+        
+        .preview img {
+            max-width: 100%;
+            max-height: 400px;
+            border-radius: 8px;
+            box-shadow: 0 4px 12px rgba(0,0,0,0.1);
+        }
+        
+        .loading {
+            display: none;
+            margin-top: 20px;
+            text-align: center;
+        }
+        
+        .spinner {
+            border: 4px solid #f3f3f3;
+            border-top: 4px solid #667eea;
+            border-radius: 50%;
+            width: 40px;
+            height: 40px;
+            animation: spin 1s linear infinite;
+            margin: 0 auto;
+        }
+        
+        @keyframes spin {
+            0% { transform: rotate(0deg); }
+            100% { transform: rotate(360deg); }
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>📸 Image Upload Service</h1>
+        <p class="subtitle">Upload images with duplicate detection and rate limiting</p>
+        
+        <div class="api-config">
+            <label for="apiUrl" style="display: block; margin-bottom: 5px; font-weight: bold; font-size: 14px;">API Base URL:</label>
+            <input type="text" id="apiUrl" value="http://localhost" placeholder="http://localhost">
+            <p style="font-size: 12px; color: #666; margin-top: 5px;">Change this to your server's address if needed</p>
+        </div>
+
+        <div class="upload-area" id="uploadArea">
+            <div class="upload-icon">☁️</div>
+            <p><strong>Click to select</strong> or drag and drop</p>
+            <p style="color: #999; font-size: 14px; margin-top: 10px;">
+                Supported: JPG, PNG, GIF, WebP, BMP (Max 50MB)
+            </p>
+            <input type="file" id="fileInput" accept="image/*">
+        </div>
+        
+        <button class="upload-btn" id="uploadBtn" disabled>Upload Image</button>
+        
+        <div class="loading" id="loading">
+            <div class="spinner"></div>
+            <p style="margin-top: 10px;">Uploading...</p>
+        </div>
+        
+        <div class="result" id="result"></div>
+        
+        <div class="preview" id="preview"></div>
+        
+        <div class="stats" id="stats">
+            <h3>Your Upload Statistics</h3>
+            <div class="stat-item">
+                <span>Uploads Used:</span>
+                <span id="uploadsUsed">-</span>
+            </div>
+            <div class="stat-item">
+                <span>Remaining:</span>
+                <span id="remaining">-</span>
+            </div>
+            <div class="stat-item">
+                <span>Total Images:</span>
+                <span id="totalImages">-</span>
+            </div>
+        </div>
+    </div>
+    
+    <script>
+        const uploadArea = document.getElementById('uploadArea');
+        const fileInput = document.getElementById('fileInput');
+        const uploadBtn = document.getElementById('uploadBtn');
+        const result = document.getElementById('result');
+        const loading = document.getElementById('loading');
+        const preview = document.getElementById('preview');
+        const apiUrlInput = document.getElementById('apiUrl');
+        
+        let selectedFile = null;
+
+        function getApiUrl() {
+            return apiUrlInput.value.replace(/\/$/, ''); // Remove trailing slash
+        }
+        
+        // Click to select file
+        uploadArea.addEventListener('click', () => fileInput.click());
+        
+        // File selection
+        fileInput.addEventListener('change', (e) => {
+            if (e.target.files.length > 0) {
+                selectedFile = e.target.files[0];
+                showFilePreview(selectedFile);
+                uploadBtn.disabled = false;
+            }
+        });
+        
+        // Drag and drop
+        uploadArea.addEventListener('dragover', (e) => {
+            e.preventDefault();
+            uploadArea.classList.add('dragover');
+        });
+        
+        uploadArea.addEventListener('dragleave', () => {
+            uploadArea.classList.remove('dragover');
+        });
+        
+        uploadArea.addEventListener('drop', (e) => {
+            e.preventDefault();
+            uploadArea.classList.remove('dragover');
+            
+            if (e.dataTransfer.files.length > 0) {
+                selectedFile = e.dataTransfer.files[0];
+                showFilePreview(selectedFile);
+                uploadBtn.disabled = false;
+            }
+        });
+        
+        // Upload button
+        uploadBtn.addEventListener('click', uploadImage);
+        
+        function showFilePreview(file) {
+            const reader = new FileReader();
+            reader.onload = (e) => {
+                preview.innerHTML = `
+                    <p><strong>Selected:</strong> ${file.name} (${(file.size / 1024 / 1024).toFixed(2)} MB)</p>
+                    <img src="${e.target.result}" alt="Preview">
+                `;
+            };
+            reader.readAsDataURL(file);
+        }
+        
+        async function uploadImage() {
+            if (!selectedFile) return;
+            
+            const formData = new FormData();
+            formData.append('file', selectedFile);
+            
+            uploadBtn.disabled = true;
+            loading.style.display = 'block';
+            result.style.display = 'none';
+            
+            try {
+                const response = await fetch(`${getApiUrl()}/upload`, {
+                    method: 'POST',
+                    body: formData
+                });
+                
+                const data = await response.json();
+                
+                if (response.ok) {
+                    if (data.is_duplicate) {
+                        showResult('info', `
+                            <strong>Duplicate Detected!</strong><br>
+                            This image was already uploaded.<br>
+                            <a href="${getApiUrl()}${data.url}" target="_blank">View Image</a>
+                        `);
+                    } else {
+                        showResult('success', `
+                            <strong>Upload Successful!</strong><br>
+                            File: ${data.filename}<br>
+                            Hash: ${data.file_hash.substring(0, 16)}...<br>
+                            Status: ${data.uploads_used}<br>
+                            <a href="${getApiUrl()}${data.url}" target="_blank">View Image</a>
+                        `);
+                        
+                        // Check processing status
+                        if (data.task_id) {
+                            checkTaskStatus(data.task_id);
+                        }
+                    }
+                } else {
+                    showResult('error', `<strong>Error:</strong> ${data.detail || 'Upload failed'}`);
+                }
+                
+                loadStats();
+                
+            } catch (error) {
+                showResult('error', `<strong>Error:</strong> ${error.message}<br><small>Make sure the API URL is correct and the service is running</small>`);
+            } finally {
+                loading.style.display = 'none';
+                uploadBtn.disabled = false;
+            }
+        }
+        
+        function showResult(type, message) {
+            result.className = `result ${type}`;
+            result.innerHTML = message;
+            result.style.display = 'block';
+        }
+        
+        async function checkTaskStatus(taskId) {
+            const maxAttempts = 10;
+            let attempts = 0;
+            
+            const interval = setInterval(async () => {
+                attempts++;
+                
+                try {
+                    const response = await fetch(`${getApiUrl()}/status/${taskId}`);
+                    const data = await response.json();
+                    
+                    if (data.status === 'completed') {
+                        clearInterval(interval);
+                        showResult('success', result.innerHTML + '<br><em>✓ Processing completed</em>');
+                    } else if (data.status === 'failed') {
+                        clearInterval(interval);
+                        showResult('error', result.innerHTML + '<br><em>✗ Processing failed</em>');
+                    } else if (attempts >= maxAttempts) {
+                        clearInterval(interval);
+                    }
+                } catch (error) {
+                    clearInterval(interval);
+                }
+            }, 2000);
+        }
+        
+        async function loadStats() {
+            try {
+                const response = await fetch(`${getApiUrl()}/my-uploads`);
+                const data = await response.json();
+                
+                document.getElementById('uploadsUsed').textContent = data.uploads_used || '-';
+                document.getElementById('remaining').textContent = data.remaining || '-';
+                document.getElementById('totalImages').textContent = data.total_uploads || '-';
+            } catch (error) {
+                console.error('Failed to load stats:', error);
+                document.getElementById('uploadsUsed').textContent = 'Error';
+                document.getElementById('remaining').textContent = 'Error';
+                document.getElementById('totalImages').textContent = 'Error';
+            }
+        }
+        
+        // Load stats on page load
+        loadStats();
+    </script>
+</body>
+</html>
