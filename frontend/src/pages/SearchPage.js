@@ -4,7 +4,7 @@ import SearchBar from '../components/SearchBar';
 import ImageCard from '../components/ImageCard';
 import ImageDetailModal from '../components/ImageDetailModal';
 
-const API_URL = process.env.REACT_APP_API_URL;
+const API_URL = process.env.REACT_APP_API_URL || '';
 
 function SearchPage() {
   const [searchQuery, setSearchQuery] = useState('');

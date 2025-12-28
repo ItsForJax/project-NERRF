@@ -5,7 +5,7 @@ import StatsPanel from '../components/StatsPanel';
 import SuccessModal from '../components/SuccessModal';
 import ErrorModal from '../components/ErrorModal';
 
-const API_URL = process.env.REACT_APP_API_URL || 'http://localhostshi';
+const API_URL = process.env.REACT_APP_API_URL || '';
 
 function UploadPage() {
   const [stats, setStats] = useState({
