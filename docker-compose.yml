@@ -19,12 +19,12 @@ services:
       context: ./frontend
       dockerfile: Dockerfile
       args:
-        - REACT_APP_API_URL=https://${{NERRF_BACKEND}}
+        - REACT_APP_API_URL=https://${NERRF_BACKEND}
     container_name: frontend
     ports:
       - "3000"
     environment:
-      - REACT_APP_API_URL=https://${{NERRF_BACKEND}}
+      - REACT_APP_API_URL=https://${NERRF_BACKEND}
     networks:
       - app-network
     restart: unless-stopped
