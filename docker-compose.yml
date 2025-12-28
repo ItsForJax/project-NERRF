@@ -125,6 +125,7 @@ services:
       timeout: 5s
       retries: 5
 
+
 networks:
   app-network:
     driver: bridge
