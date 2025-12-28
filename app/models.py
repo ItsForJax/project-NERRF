@@ -1,7 +1,8 @@
-from sqlalchemy import Column, String, Integer, DateTime, Boolean, Index
+from sqlalchemy import Column, String, Integer, DateTime, Boolean, Index, Text, ARRAY
 from sqlalchemy.ext.declarative import declarative_base
 from sqlalchemy.sql import func
 from datetime import datetime
+from sqlalchemy.dialects.postgresql import ARRAY as PG_ARRAY
 
 Base = declarative_base()
 
@@ -11,6 +12,9 @@ class Image(Base):
     id = Column(Integer, primary_key=True, index=True)
     filename = Column(String, nullable=False)
     original_filename = Column(String, nullable=False)
+    name = Column(String, nullable=False)  # User-provided name
+    description = Column(Text, default="")  # User-provided description
+    tags = Column(PG_ARRAY(String), default=list)  # User-provided tags
     file_hash = Column(String, unique=True, index=True, nullable=False)
     file_size = Column(Integer, nullable=False)
     mime_type = Column(String, nullable=False)

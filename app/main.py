@@ -1,4 +1,4 @@
-from fastapi import FastAPI, UploadFile, File, HTTPException, Depends, Request
+from fastapi import FastAPI, UploadFile, File, HTTPException, Depends, Request, Form
 from fastapi.responses import JSONResponse
 from fastapi.middleware.cors import CORSMiddleware
 from sqlalchemy.ext.asyncio import AsyncSession
@@ -10,11 +10,13 @@ from pathlib import Path
 import os
 from datetime import datetime
 import mimetypes
+import json
 
 from database import get_db, init_db
 from models import Image as ImageModel, UploadLimit
 from celery_app import celery_app
 import tasks  # Import the module
+from elasticsearch_helper import init_elasticsearch, index_image, search_images
 
 app = FastAPI(title="Image Upload Service")
 
@@ -39,9 +41,10 @@ ALLOWED_MIME_TYPES = {'image/jpeg', 'image/png', 'image/gif', 'image/webp', 'ima
 
 @app.on_event("startup")
 async def startup_event():
-    """Initialize database on startup"""
+    """Initialize database and Elasticsearch on startup"""
     await init_db()
-    print("Database initialized")
+    await init_elasticsearch()
+    print("Database and Elasticsearch initialized")
 
 def get_client_ip(request: Request) -> str:
     """Get client IP address, considering proxies"""
@@ -115,11 +118,23 @@ async def root():
 async def upload_image(
     request: Request,
     file: UploadFile = File(...),
+    name: str = Form(None),
+    description: str = Form(""),
+    tags: str = Form("[]"),
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Upload an image with duplicate detection and IP limiting
+    Upload an image with duplicate detection, IP limiting, and metadata
     """
+    # Parse tags from JSON string
+    try:
+        tags_list = json.loads(tags) if tags else []
+    except json.JSONDecodeError:
+        tags_list = []
+    
+    # Use provided name or fallback to filename
+    image_name = name if name else file.filename
+    
     # Get client IP
     client_ip = get_client_ip(request)
     
@@ -193,6 +208,9 @@ async def upload_image(
     image_record = ImageModel(
         filename=unique_filename,
         original_filename=file.filename,
+        name=image_name,
+        description=description,
+        tags=tags_list,
         file_hash=file_hash,
         file_size=file_size,
         mime_type=mime_type,
@@ -203,6 +221,18 @@ async def upload_image(
     db.add(image_record)
     await db.commit()
     await db.refresh(image_record)
+    
+    # Index in Elasticsearch
+    image_url = f"/images/{unique_filename}"
+    await index_image(
+        image_id=image_record.id,
+        name=image_name,
+        description=description,
+        tags=tags_list,
+        url=image_url,
+        file_hash=file_hash,
+        uploaded_at=image_record.uploaded_at
+    )
     
     # Increment upload count for this IP
     await increment_upload_count(client_ip, db)
@@ -328,3 +358,14 @@ async def get_stats(db: AsyncSession = Depends(get_db)):
 async def health_check():
     """Health check endpoint"""
     return {"status": "healthy"}
+
+@app.get("/search")
+async def search(q: str = ""):
+    """
+    Search images by name, description, or tags using Elasticsearch
+    """
+    if not q.strip():
+        return {"results": []}
+    
+    results = await search_images(q)
+    return {"results": results, "count": len(results)}
