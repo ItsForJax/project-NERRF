@@ -18,6 +18,8 @@ services:
     build:
       context: ./frontend
       dockerfile: Dockerfile
+      args:
+        - REACT_APP_API_URL=http://localhost
     container_name: frontend
     ports:
       - "3000:80"
@@ -39,11 +41,14 @@ services:
     environment:
       - REDIS_URL=redis://redis:6379/0
       - DATABASE_URL=postgresql://imageuser:imagepass@postgres:5432/imagedb
+      - ELASTICSEARCH_URL=http://elasticsearch:9200
       - MAX_UPLOADS_PER_IP=25
     depends_on:
       redis:
         condition: service_healthy
       postgres:
+        condition: service_healthy
+      elasticsearch:
         condition: service_healthy
     networks:
       - app-network
@@ -82,6 +87,25 @@ services:
       timeout: 3s
       retries: 5
 
+  elasticsearch:
+    image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
+    container_name: elasticsearch
+    environment:
+      - discovery.type=single-node
+      - xpack.security.enabled=false
+      - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
+    ports:
+      - "9200:9200"
+    volumes:
+      - elasticsearch_data:/usr/share/elasticsearch/data
+    networks:
+      - app-network
+    healthcheck:
+      test: ["CMD-SHELL", "curl -f http://localhost:9200/_cluster/health || exit 1"]
+      interval: 10s
+      timeout: 5s
+      retries: 5
+
   postgres:
     image: postgres:15-alpine
     container_name: postgres
@@ -107,3 +131,4 @@ networks:
 
 volumes:
   postgres_data:
+  elasticsearch_data:
