@@ -1,9 +1,8 @@
 import React, { useState, useRef } from 'react';
 import './UploadArea.css';
 
-function UploadArea({ onUpload, loading }) {
+function UploadArea({ onFileSelect, selectedFile }) {
   const [dragOver, setDragOver] = useState(false);
-  const [selectedFile, setSelectedFile] = useState(null);
   const [previewUrl, setPreviewUrl] = useState(null);
   const fileInputRef = useRef(null);
 
@@ -32,25 +31,26 @@ function UploadArea({ onUpload, loading }) {
   };
 
   const handleFileSelect = (file) => {
-    setSelectedFile(file);
-
     // Create preview
     const reader = new FileReader();
     reader.onload = (e) => {
       setPreviewUrl(e.target.result);
     };
     reader.readAsDataURL(file);
-  };
-
-  const handleUploadClick = () => {
-    if (selectedFile) {
-      onUpload(selectedFile);
-    }
+    
+    onFileSelect(file);
   };
 
   const handleAreaClick = () => {
     fileInputRef.current?.click();
   };
+
+  // Update preview when selectedFile changes
+  React.useEffect(() => {
+    if (!selectedFile) {
+      setPreviewUrl(null);
+    }
+  }, [selectedFile]);
 
   return (
     <div className="upload-section">
@@ -91,27 +91,6 @@ function UploadArea({ onUpload, loading }) {
           </div>
         )}
       </div>
-
-      <button
-        className="upload-button"
-        onClick={handleUploadClick}
-        disabled={!selectedFile || loading}
-      >
-        {loading ? (
-          <>
-            <span className="spinner"></span>
-            Uploading...
-          </>
-        ) : (
-          'Upload Image'
-        )}
-      </button>
-
-      {loading && (
-        <div className="upload-progress">
-          <div className="progress-text">Processing your upload...</div>
-        </div>
-      )}
     </div>
   );
 }
