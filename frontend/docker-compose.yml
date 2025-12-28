@@ -1,0 +1,14 @@
+version: '3.8'
+
+services:
+  frontend:
+    build:
+      context: .
+      dockerfile: Dockerfile
+    container_name: image-upload-frontend
+    ports:
+      - "3000:80"
+    environment:
+      # Change this to your backend API URL
+      - REACT_APP_API_URL=http://localhost
+    restart: unless-stopped
