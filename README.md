@@ -1,17 +1,19 @@
-# Image Upload Service
+# NERRF Stack - Image Upload Service
 
-A full-stack image upload and search application built with FastAPI, React, PostgreSQL, Elasticsearch, and Celery.
+A full-stack image upload and search application built with **N**ginx, **E**lasticsearch, **R**edis, **R**eact, and **F**astAPI, backed by PostgreSQL and Celery.
 
 ## Features
 
 - Image upload with metadata (name, description, tags)
 - Duplicate detection using SHA256 hashing
 - IP-based rate limiting (25 uploads per IP)
+- Cloudflare-aware real IP detection for accurate rate limiting
 - Asynchronous image processing with Celery
 - Full-text search with Elasticsearch
 - As-you-type autocomplete search
 - Thumbnail generation
-- Docker-based deployment
+- Docker-based deployment with named volumes support
+- Dark/Light theme toggle
 
 ## Tech Stack
 
@@ -24,14 +26,16 @@ A full-stack image upload and search application built with FastAPI, React, Post
 - Nginx - Reverse proxy and static file serving
 
 ### Frontend
-- React - UI framework
+- React 18 - UI framework
 - React Router - Client-side routing
-- CSS3 - Styling and animations
+- Tailwind CSS - Styling
+- Radix UI + shadcn/ui - Component library
+- Lucide React - Icons
 
 ## Project Structure
 
 ```
-image-upload-service/
+project-NERRF/
 ├── app/                          # Backend application
 │   ├── main.py                   # FastAPI application
 │   ├── models.py                 # Database models
@@ -45,7 +49,7 @@ image-upload-service/
 │
 ├── frontend/                     # React application
 │   ├── src/
-│   │   ├── components/          # React components
+│   │   ├── components/          # React components & UI
 │   │   ├── pages/               # Page components
 │   │   ├── App.js              # Main app component
 │   │   └── index.js            # Entry point
@@ -55,10 +59,8 @@ image-upload-service/
 ├── nginx/                       # Nginx configuration
 │   └── nginx.conf              # Reverse proxy config
 │
-├── uploads/                     # Uploaded images storage
-│   └── thumbs/                 # Thumbnail storage
-│
-└── docker-compose.yml          # Service orchestration
+├── docker-compose.yml          # Local development
+└── docker-compose.prod.yml     # Production deployment
 ```
 
 ## Quick Start
@@ -72,8 +74,8 @@ image-upload-service/
 
 1. Clone the repository:
 ```bash
-git clone <repository-url>
-cd image-upload-service
+git clone https://github.com/ItsForJax/project-NERRF.git
+cd project-NERRF
 ```
 
 2. Start all services:
@@ -90,6 +92,21 @@ docker-compose logs -f
 - Frontend: http://localhost:3000
 - Backend API: http://localhost
 - Elasticsearch: http://localhost:9200
+
+### Production Deployment
+
+For production, use `docker-compose.prod.yml` which includes named volumes:
+
+```bash
+docker-compose -f docker-compose.prod.yml up -d --build
+```
+
+**Production considerations:**
+- Uses named Docker volumes instead of bind mounts for better portability
+- Configure `ALLOWED_ORIGINS` environment variable with your actual domains
+- Set up Cloudflare proxy for DDoS protection and CDN
+- Backend detects real client IP via `CF-Connecting-IP` header
+- Recommended to use a reverse proxy manager like Traefik or Dokploy
 
 ## Usage
 
@@ -152,15 +169,16 @@ Edit `docker-compose.yml` to configure:
 - `REDIS_URL` - Redis connection string
 - `ELASTICSEARCH_URL` - Elasticsearch connection string
 - `MAX_UPLOADS_PER_IP` - Upload limit per IP (default: 25)
+- `ALLOWED_ORIGINS` - Comma-separated list of allowed CORS origins (default: *)
 
 **Frontend:**
 - `REACT_APP_API_URL` - Backend API URL (default: http://localhost)
 
 ### File Limits
 
-- Max file size: 50MB
+- Max file size: 10MB
 - Supported formats: JPG, PNG, GIF, WebP, BMP
-- Upload limit: 25 images per IP adress
+- Upload limit: 25 images per IP address
 
 ## How It Works
 
@@ -236,10 +254,15 @@ docker-compose up -d --build frontend
 
 ### Clearing Data
 
-Remove all data:
+Remove all data (including volumes):
 ```bash
 docker-compose down -v
 docker-compose up -d --build
+```
+
+For production with named volumes, delete specific volumes:
+```bash
+docker volume rm <volume-name>
 ```
 
 Clear only databases:
@@ -253,11 +276,14 @@ docker-compose restart fastapi
 
 ### CORS Errors
 
-Make sure `REACT_APP_API_URL` in docker-compose.yml matches your backend URL:
+Make sure `ALLOWED_ORIGINS` in docker-compose.yml includes your frontend domain:
 ```yaml
 environment:
+  - ALLOWED_ORIGINS=http://localhost:3000,https://your-domain.com
   - REACT_APP_API_URL=http://localhost
 ```
+
+For production with Cloudflare, ensure your frontend domain is in `ALLOWED_ORIGINS` and that your nginx configuration passes the Origin header.
 
 ### Images Not Loading
 
