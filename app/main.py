@@ -47,7 +47,13 @@ async def startup_event():
     print("Database and Elasticsearch initialized")
 
 def get_client_ip(request: Request) -> str:
-    """Get client IP address, considering proxies"""
+    """Get client IP address, considering proxies and Cloudflare"""
+    # Cloudflare's CF-Connecting-IP is most reliable and can't be spoofed
+    cf_ip = request.headers.get("CF-Connecting-IP")
+    if cf_ip:
+        return cf_ip
+
+    # Fallback to standard proxy headers
     forwarded = request.headers.get("X-Forwarded-For")
     if forwarded:
         return forwarded.split(",")[0].strip()
