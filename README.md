@@ -2,6 +2,8 @@
 
 A full-stack image upload and search application built with **N**ginx, **E**lasticsearch, **R**edis, **R**eact, and **F**astAPI, backed by PostgreSQL and Celery.
 
+🔗 **Live Demo:** [nerrf.ericksondelasoledad.dev](https://nerrf.ericksondelasoledad.dev)
+
 ## Features
 
 - Image upload with metadata (name, description, tags)
