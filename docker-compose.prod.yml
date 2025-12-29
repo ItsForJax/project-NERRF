@@ -6,7 +6,7 @@ services:
     container_name: nginx
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ../files/uploads:/var/www/uploads:ro
+      - uploads_data:/var/www/uploads:ro
     depends_on:
       - fastapi
     networks:
@@ -29,7 +29,7 @@ services:
       dockerfile: Dockerfile
     container_name: fastapi
     volumes:
-      - ../files/uploads:/app/uploads
+      - uploads_data:/app/uploads
     environment:
       - REDIS_URL=redis://redis:6379/0
       - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
@@ -54,7 +54,7 @@ services:
     container_name: celery_worker
     command: celery -A worker worker --loglevel=info
     volumes:
-      - ../files/uploads:/app/uploads
+      - uploads_data:/app/uploads
     environment:
       - REDIS_URL=redis://redis:6379/0
       - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
@@ -119,3 +119,4 @@ networks:
 volumes:
   postgres_data:
   elasticsearch_data:
+  uploads_data:
