@@ -271,14 +271,10 @@ function UploadPage() {
                             JPG, PNG, GIF, WebP, BMP • Maximum 50MB
                           </p>
                         </div>
-                        <Button
-                          type="button"
-                          size="lg"
-                          className="bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700"
-                        >
+                        <div className="inline-flex items-center justify-center px-6 py-3 text-lg font-medium rounded-lg bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg cursor-pointer transition-all">
                           <UploadIcon className="h-4 w-4 mr-2" />
                           Browse Files
-                        </Button>
+                        </div>
                       </div>
                     )}
                   </label>
@@ -442,8 +438,8 @@ function UploadPage() {
                 <>
                   <div className="space-y-2 p-4 bg-green-50 dark:bg-green-950/50 rounded-lg border border-green-200 dark:border-green-800">
                     <div className="flex justify-between items-center">
-                      <span className="text-sm text-gray-600 dark:text-gray-400">Image ID:</span>
-                      <span className="font-mono text-sm font-semibold text-gray-900 dark:text-gray-100">{uploadResult.id}</span>
+                      <span className="text-sm text-gray-600 dark:text-gray-400">File Hash:</span>
+                      <span className="font-mono text-xs font-semibold text-gray-900 dark:text-gray-100 break-all">{uploadResult.file_hash}</span>
                     </div>
                     {uploadResult.is_duplicate && (
                       <Badge className="bg-yellow-500">Duplicate Detected</Badge>
