@@ -20,11 +20,14 @@ from elasticsearch_helper import init_elasticsearch, index_image, search_images
 
 app = FastAPI(title="Image Upload Service")
 
+# Get allowed origins from environment variable
+ALLOWED_ORIGINS = os.getenv("ALLOWED_ORIGINS", "*").split(",")
+
 # Add CORS middleware
 app.add_middleware(
     CORSMiddleware,
-    allow_origins=["*"],  # Allow all origins - restrict in production
-    allow_credentials=False,  # Set to False when using wildcard origins
+    allow_origins=ALLOWED_ORIGINS,
+    allow_credentials=True,  # Enable credentials for cookies/auth
     allow_methods=["*"],
     allow_headers=["*"],
     expose_headers=["*"],
