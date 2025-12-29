@@ -6,6 +6,7 @@ import { Input } from '../components/ui/input';
 import { Label } from '../components/ui/label';
 import { Badge } from '../components/ui/badge';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../components/ui/dialog';
+import generateDeviceFingerprint from '../utils/deviceFingerprint';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost';
 
@@ -44,7 +45,8 @@ function UploadPage() {
 
   const loadStats = async () => {
     try {
-      const response = await fetch(`${API_URL}/my-uploads`);
+      const fingerprint = await generateDeviceFingerprint();
+      const response = await fetch(`${API_URL}/my-uploads?device_fingerprint=${encodeURIComponent(fingerprint)}`);
       const data = await response.json();
 
       setStats({
@@ -111,11 +113,14 @@ function UploadPage() {
   const handleUpload = async () => {
     if (!selectedFile) return;
 
+    const fingerprint = await generateDeviceFingerprint();
+
     const formData = new FormData();
     formData.append('file', selectedFile);
     formData.append('name', metadata.name || selectedFile.name);
     formData.append('description', metadata.description);
     formData.append('tags', JSON.stringify(metadata.tags));
+    formData.append('device_fingerprint', fingerprint);
 
     setLoading(true);
 

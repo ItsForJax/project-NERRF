@@ -62,6 +62,12 @@ def get_client_ip(request: Request) -> str:
         return real_ip
     return request.client.host
 
+def get_device_id(ip_address: str, device_fingerprint: str = None) -> str:
+    """Create a unique device ID from IP + device fingerprint"""
+    if device_fingerprint:
+        return f"{ip_address}:{device_fingerprint}"
+    return f"{ip_address}:no-fingerprint"
+
 async def calculate_file_hash(file_path: str) -> str:
     """Calculate SHA256 hash of file"""
     sha256_hash = hashlib.sha256()
@@ -70,40 +76,45 @@ async def calculate_file_hash(file_path: str) -> str:
             sha256_hash.update(chunk)
     return sha256_hash.hexdigest()
 
-async def check_upload_limit(ip_address: str, db: AsyncSession) -> bool:
-    """Check if IP has reached upload limit"""
+async def check_upload_limit(device_id: str, db: AsyncSession) -> bool:
+    """Check if device has reached upload limit"""
     result = await db.execute(
-        select(UploadLimit).where(UploadLimit.ip_address == ip_address)
+        select(UploadLimit).where(UploadLimit.device_id == device_id)
     )
     limit_record = result.scalar_one_or_none()
-    
+
     if limit_record is None:
         return True  # No record yet, allow upload
-    
+
     return limit_record.upload_count < MAX_UPLOADS_PER_IP
 
-async def increment_upload_count(ip_address: str, db: AsyncSession):
-    """Increment upload count for IP"""
+async def increment_upload_count(device_id: str, ip_address: str, device_fingerprint: str, db: AsyncSession):
+    """Increment upload count for device"""
     result = await db.execute(
-        select(UploadLimit).where(UploadLimit.ip_address == ip_address)
+        select(UploadLimit).where(UploadLimit.device_id == device_id)
     )
     limit_record = result.scalar_one_or_none()
-    
+
     if limit_record is None:
         # Create new record
-        limit_record = UploadLimit(ip_address=ip_address, upload_count=1)
+        limit_record = UploadLimit(
+            device_id=device_id,
+            ip_address=ip_address,
+            device_fingerprint=device_fingerprint,
+            upload_count=1
+        )
         db.add(limit_record)
     else:
         # Increment existing
         limit_record.upload_count += 1
         limit_record.updated_at = datetime.utcnow()
-    
+
     await db.commit()
 
-async def get_upload_count(ip_address: str, db: AsyncSession) -> int:
-    """Get current upload count for IP"""
+async def get_upload_count(device_id: str, db: AsyncSession) -> int:
+    """Get current upload count for device"""
     result = await db.execute(
-        select(UploadLimit).where(UploadLimit.ip_address == ip_address)
+        select(UploadLimit).where(UploadLimit.device_id == device_id)
     )
     limit_record = result.scalar_one_or_none()
     return limit_record.upload_count if limit_record else 0
@@ -127,26 +138,28 @@ async def upload_image(
     name: str = Form(None),
     description: str = Form(""),
     tags: str = Form("[]"),
+    device_fingerprint: str = Form(None),
     db: AsyncSession = Depends(get_db)
 ):
     """
-    Upload an image with duplicate detection, IP limiting, and metadata
+    Upload an image with duplicate detection, device-based limiting, and metadata
     """
     # Parse tags from JSON string
     try:
         tags_list = json.loads(tags) if tags else []
     except json.JSONDecodeError:
         tags_list = []
-    
+
     # Use provided name or fallback to filename
     image_name = name if name else file.filename
-    
-    # Get client IP
+
+    # Get client IP and device ID
     client_ip = get_client_ip(request)
-    
+    device_id = get_device_id(client_ip, device_fingerprint)
+
     # Check upload limit
-    if not await check_upload_limit(client_ip, db):
-        current_count = await get_upload_count(client_ip, db)
+    if not await check_upload_limit(device_id, db):
+        current_count = await get_upload_count(device_id, db)
         raise HTTPException(
             status_code=429,
             detail=f"Upload limit reached. You have uploaded {current_count}/{MAX_UPLOADS_PER_IP} images."
@@ -221,13 +234,14 @@ async def upload_image(
         file_size=file_size,
         mime_type=mime_type,
         ip_address=client_ip,
+        device_fingerprint=device_fingerprint,
         processed=False
     )
-    
+
     db.add(image_record)
     await db.commit()
     await db.refresh(image_record)
-    
+
     # Index in Elasticsearch
     image_url = f"/images/{unique_filename}"
     await index_image(
@@ -239,15 +253,15 @@ async def upload_image(
         file_hash=file_hash,
         uploaded_at=image_record.uploaded_at
     )
-    
-    # Increment upload count for this IP
-    await increment_upload_count(client_ip, db)
-    
+
+    # Increment upload count for this device
+    await increment_upload_count(device_id, client_ip, device_fingerprint, db)
+
     # Queue image processing task
     task = tasks.process_image.delay(image_record.id, str(file_path))
-    
+
     # Get updated count
-    current_count = await get_upload_count(client_ip, db)
+    current_count = await get_upload_count(device_id, db)
     
     return JSONResponse(
         status_code=201,
@@ -298,22 +312,33 @@ async def get_task_status(task_id: str):
 @app.get("/my-uploads")
 async def get_my_uploads(
     request: Request,
+    device_fingerprint: str = None,
     db: AsyncSession = Depends(get_db)
 ):
-    """Get all uploads from current IP address"""
+    """Get all uploads from current device (IP + fingerprint)"""
     client_ip = get_client_ip(request)
-    
-    result = await db.execute(
-        select(ImageModel)
-        .where(ImageModel.ip_address == client_ip)
-        .order_by(ImageModel.uploaded_at.desc())
-    )
+    device_id = get_device_id(client_ip, device_fingerprint)
+
+    # Query images by device fingerprint if available, otherwise by IP
+    if device_fingerprint:
+        result = await db.execute(
+            select(ImageModel)
+            .where(ImageModel.device_fingerprint == device_fingerprint)
+            .order_by(ImageModel.uploaded_at.desc())
+        )
+    else:
+        result = await db.execute(
+            select(ImageModel)
+            .where(ImageModel.ip_address == client_ip)
+            .order_by(ImageModel.uploaded_at.desc())
+        )
     images = result.scalars().all()
-    
-    upload_count = await get_upload_count(client_ip, db)
-    
+
+    upload_count = await get_upload_count(device_id, db)
+
     return {
         "ip_address": client_ip,
+        "device_id": device_id,
         "total_uploads": len(images),
         "uploads_used": f"{upload_count}/{MAX_UPLOADS_PER_IP}",
         "remaining": MAX_UPLOADS_PER_IP - upload_count,
