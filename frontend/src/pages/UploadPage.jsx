@@ -268,7 +268,7 @@ function UploadPage() {
                         <div>
                           <p className="text-xl font-semibold mb-2">Choose a file or drag & drop</p>
                           <p className="text-sm text-muted-foreground">
-                            JPG, PNG, GIF, WebP, BMP • Maximum 50MB
+                            JPG, PNG, GIF, WebP, BMP • Maximum 10MB
                           </p>
                         </div>
                         <div className="inline-flex items-center justify-center px-6 py-3 text-lg font-medium rounded-lg bg-gradient-to-r from-blue-600 to-purple-600 hover:from-blue-700 hover:to-purple-700 text-white shadow-lg cursor-pointer transition-all">
