@@ -115,7 +115,7 @@ services:
     container_name: test-cleanup
     volumes:
       - uploads_data:/app/uploads
-      - ./scripts/cleanup.sh:/cleanup.sh:ro
+      - ./scripts/cleanup.sh:/cleanup.sh
     environment:
       - POSTGRES_USER=${POSTGRES_USER}
       - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
