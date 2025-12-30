@@ -1,8 +1,9 @@
 import React, { useState, useEffect, useCallback } from 'react';
-import { Search as SearchIcon, Loader2, Sparkles, Calendar, Hash, Tag } from 'lucide-react';
+import { Search as SearchIcon, Loader2, Sparkles, Calendar, Hash, Tag, Trash2, AlertTriangle, CheckCircle2 } from 'lucide-react';
 import { Input } from '../components/ui/input';
 import { Card, CardContent } from '../components/ui/card';
 import { Badge } from '../components/ui/badge';
+import { Button } from '../components/ui/button';
 import { Dialog, DialogContent, DialogDescription, DialogHeader, DialogTitle } from '../components/ui/dialog';
 
 const API_URL = process.env.REACT_APP_API_URL || 'http://localhost';
@@ -13,6 +14,9 @@ function SearchPage() {
   const [loading, setLoading] = useState(false);
   const [hasSearched, setHasSearched] = useState(false);
   const [selectedImage, setSelectedImage] = useState(null);
+  const [showDeleteConfirm, setShowDeleteConfirm] = useState(false);
+  const [deleting, setDeleting] = useState(false);
+  const [deleteSuccess, setDeleteSuccess] = useState(false);
 
   // Debounced search function
   const debouncedSearch = useCallback(
@@ -56,6 +60,57 @@ function SearchPage() {
 
   const handleCloseModal = () => {
     setSelectedImage(null);
+    setShowDeleteConfirm(false);
+  };
+
+  const handleDeleteClick = () => {
+    setShowDeleteConfirm(true);
+  };
+
+  const handleDeleteConfirm = async () => {
+    const fileHash = selectedImage?.file_hash || selectedImage?.hash;
+
+    if (!fileHash) {
+      console.error('No file hash found in image:', selectedImage);
+      alert('Cannot delete: file hash missing');
+      return;
+    }
+
+    console.log('Deleting image with hash:', fileHash);
+    setDeleting(true);
+    try {
+      const response = await fetch(`${API_URL}/delete/${fileHash}`, {
+        method: 'DELETE',
+      });
+
+      console.log('Delete response:', response.status);
+
+      if (response.ok) {
+        // Show success message
+        setDeleteSuccess(true);
+
+        // Wait 1 second to show success message
+        await new Promise(resolve => setTimeout(resolve, 1000));
+
+        // Remove from results
+        setResults(results.filter(img =>
+          (img.file_hash || img.hash) !== fileHash
+        ));
+
+        // Close modals
+        setSelectedImage(null);
+        setShowDeleteConfirm(false);
+        setDeleteSuccess(false);
+      } else {
+        const data = await response.json();
+        alert(data.detail || 'Failed to delete image');
+      }
+    } catch (error) {
+      console.error('Delete error:', error);
+      alert('Failed to delete image');
+    } finally {
+      setDeleting(false);
+    }
   };
 
   return (
@@ -270,18 +325,114 @@ function SearchPage() {
                         </p>
                       </div>
                     )}
-                    {selectedImage.hash && (
+                    {(selectedImage.file_hash || selectedImage.hash) && (
                       <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border-2 border-gray-200 dark:border-gray-700 shadow">
                         <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 text-sm mb-1">
                           <Hash className="h-4 w-4" />
                           <span>Hash</span>
                         </div>
                         <p className="font-mono text-xs truncate font-semibold text-gray-900 dark:text-gray-100">
-                          {selectedImage.hash}
+                          {selectedImage.file_hash || selectedImage.hash}
                         </p>
                       </div>
                     )}
                   </div>
+
+                  {/* Auto-deletion notice */}
+                  <div className="p-4 bg-yellow-50 dark:bg-yellow-950/30 rounded-lg border-2 border-yellow-200 dark:border-yellow-800">
+                    <div className="flex items-start gap-3">
+                      <AlertTriangle className="h-5 w-5 text-yellow-600 dark:text-yellow-400 mt-0.5 flex-shrink-0" />
+                      <div>
+                        <p className="text-sm font-medium text-yellow-800 dark:text-yellow-200">
+                          All images are automatically deleted daily
+                        </p>
+                        <p className="text-xs text-yellow-700 dark:text-yellow-300 mt-1">
+                          This is a temporary storage service. Images are purged regularly.
+                        </p>
+                      </div>
+                    </div>
+                  </div>
+
+                  {/* Delete button */}
+                  <Button
+                    onClick={handleDeleteClick}
+                    variant="destructive"
+                    className="w-full bg-red-600 hover:bg-red-700"
+                    size="lg"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete Image
+                  </Button>
+                </div>
+              </>
+            )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Confirmation Modal */}
+        <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+          <DialogContent className="sm:max-w-md bg-white dark:bg-gray-900">
+            {!deleteSuccess ? (
+              <>
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2 text-red-600 dark:text-red-400">
+                    <AlertTriangle className="h-6 w-6" />
+                    Delete Image?
+                  </DialogTitle>
+                  <DialogDescription className="text-gray-600 dark:text-gray-400">
+                    This action is permanent and cannot be undone.
+                  </DialogDescription>
+                </DialogHeader>
+                <div className="space-y-4">
+                  <div className="p-4 bg-red-50 dark:bg-red-950/50 rounded-lg border border-red-200 dark:border-red-800">
+                    <p className="text-sm text-red-800 dark:text-red-200 font-medium mb-2">
+                      Are you sure you want to delete this image?
+                    </p>
+                    <p className="text-xs text-red-700 dark:text-red-300">
+                      The image file will be permanently deleted from the server immediately.
+                    </p>
+                  </div>
+                  <div className="flex gap-2">
+                    <Button
+                      onClick={handleDeleteConfirm}
+                      disabled={deleting}
+                      className="flex-1 bg-red-600 hover:bg-red-700"
+                    >
+                      {deleting ? (
+                        <>
+                          <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                          Deleting...
+                        </>
+                      ) : (
+                        <>
+                          <Trash2 className="h-4 w-4 mr-2" />
+                          Yes, Delete
+                        </>
+                      )}
+                    </Button>
+                    <Button
+                      onClick={() => setShowDeleteConfirm(false)}
+                      variant="outline"
+                      className="flex-1"
+                      disabled={deleting}
+                    >
+                      Cancel
+                    </Button>
+                  </div>
+                </div>
+              </>
+            ) : (
+              <>
+                <DialogHeader>
+                  <DialogTitle className="flex items-center gap-2 text-green-600 dark:text-green-400">
+                    <CheckCircle2 className="h-6 w-6" />
+                    Deleted Successfully!
+                  </DialogTitle>
+                </DialogHeader>
+                <div className="p-4 bg-green-50 dark:bg-green-950/50 rounded-lg border border-green-200 dark:border-green-800">
+                  <p className="text-sm text-green-800 dark:text-green-200">
+                    The image has been permanently deleted from the server.
+                  </p>
                 </div>
               </>
             )}

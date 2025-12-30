@@ -1,14 +1,10 @@
-version: '3.8'
-
 services:
   nginx:
     image: nginx:alpine
-    container_name: nginx
-    ports:
-      - "80:80"
+    container_name: test-nginx
     volumes:
       - ./nginx/nginx.conf:/etc/nginx/nginx.conf:ro
-      - ./uploads:/var/www/uploads:ro
+      - uploads_data:/var/www/uploads:ro
     depends_on:
       - fastapi
     networks:
@@ -20,9 +16,7 @@ services:
       dockerfile: Dockerfile
       args:
         - REACT_APP_API_URL=${REACT_APP_API_URL}
-    container_name: frontend
-    ports:
-      - "3000:80"
+    container_name: test-frontend
     networks:
       - app-network
     restart: unless-stopped
@@ -31,16 +25,15 @@ services:
     build:
       context: ./app
       dockerfile: Dockerfile
-    container_name: fastapi
-    ports:
-      - "8000:8000"
+    container_name: test-fastapi
     volumes:
-      - ./uploads:/app/uploads
+      - uploads_data:/app/uploads
     environment:
       - REDIS_URL=redis://redis:6379/0
-      - DATABASE_URL=postgresql://imageuser:imagepass@postgres:5432/imagedb
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
       - ELASTICSEARCH_URL=http://elasticsearch:9200
       - MAX_UPLOADS_PER_IP=25
+      - ALLOWED_ORIGINS=${ALLOWED_ORIGINS}
     depends_on:
       redis:
         condition: service_healthy
@@ -56,13 +49,13 @@ services:
     build:
       context: ./app
       dockerfile: Dockerfile
-    container_name: celery_worker
+    container_name: test-celery_worker
     command: celery -A worker worker --loglevel=info
     volumes:
-      - ./uploads:/app/uploads
+      - uploads_data:/app/uploads
     environment:
       - REDIS_URL=redis://redis:6379/0
-      - DATABASE_URL=postgresql://imageuser:imagepass@postgres:5432/imagedb
+      - DATABASE_URL=postgresql://${POSTGRES_USER}:${POSTGRES_PASSWORD}@postgres:5432/${POSTGRES_DB}
     depends_on:
       redis:
         condition: service_healthy
@@ -74,9 +67,7 @@ services:
 
   redis:
     image: redis:7-alpine
-    container_name: redis
-    ports:
-      - "6379:6379"
+    container_name: test-redis
     networks:
       - app-network
     healthcheck:
@@ -87,13 +78,11 @@ services:
 
   elasticsearch:
     image: docker.elastic.co/elasticsearch/elasticsearch:8.11.0
-    container_name: elasticsearch
+    container_name: test-elasticsearch
     environment:
       - discovery.type=single-node
       - xpack.security.enabled=false
       - "ES_JAVA_OPTS=-Xms512m -Xmx512m"
-    ports:
-      - "9200:9200"
     volumes:
       - elasticsearch_data:/usr/share/elasticsearch/data
     networks:
@@ -106,19 +95,17 @@ services:
 
   postgres:
     image: postgres:15-alpine
-    container_name: postgres
+    container_name: test-postgres
     environment:
-      - POSTGRES_USER=imageuser
-      - POSTGRES_PASSWORD=imagepass
-      - POSTGRES_DB=imagedb
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
     volumes:
       - postgres_data:/var/lib/postgresql/data
-    ports:
-      - "5432:5432"
     networks:
       - app-network
     healthcheck:
-      test: ["CMD-SHELL", "pg_isready -U imageuser -d imagedb"]
+      test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER} -d ${POSTGRES_DB}"]
       interval: 5s
       timeout: 5s
       retries: 5
@@ -130,3 +117,4 @@ networks:
 volumes:
   postgres_data:
   elasticsearch_data:
+  uploads_data:
