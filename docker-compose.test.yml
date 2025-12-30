@@ -110,6 +110,28 @@ services:
       timeout: 5s
       retries: 5
 
+  cleanup:
+    image: alpine:latest
+    container_name: test-cleanup
+    volumes:
+      - uploads_data:/app/uploads
+      - ./scripts/cleanup.sh:/cleanup.sh:ro
+    environment:
+      - POSTGRES_USER=${POSTGRES_USER}
+      - POSTGRES_PASSWORD=${POSTGRES_PASSWORD}
+      - POSTGRES_DB=${POSTGRES_DB}
+    depends_on:
+      - postgres
+      - elasticsearch
+    networks:
+      - app-network
+    command: >
+      sh -c "apk add --no-cache postgresql-client curl dcron &&
+             chmod +x /cleanup.sh &&
+             echo '0 0 * * * /cleanup.sh >> /var/log/cleanup.log 2>&1' > /etc/crontabs/root &&
+             crond -f -l 2"
+    restart: unless-stopped
+
 networks:
   app-network:
     driver: bridge
