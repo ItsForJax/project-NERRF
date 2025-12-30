@@ -327,6 +327,7 @@ async def get_my_uploads(
                 "original_filename": img.original_filename,
                 "url": f"/images/{img.filename}",
                 "file_size": img.file_size,
+                "file_hash": img.file_hash,
                 "uploaded_at": img.uploaded_at.isoformat(),
                 "processed": img.processed
             }
@@ -375,6 +376,70 @@ async def search(q: str = ""):
     """
     if not q.strip():
         return {"results": []}
-    
+
     results = await search_images(q)
     return {"results": results, "count": len(results)}
+
+@app.delete("/delete/{file_hash}")
+async def delete_image(
+    file_hash: str,
+    request: Request,
+    db: AsyncSession = Depends(get_db)
+):
+    """
+    Delete an image by file hash. Only the uploader (same IP) can delete their images.
+    """
+    client_ip = get_client_ip(request)
+
+    # Find the image
+    result = await db.execute(
+        select(ImageModel).where(ImageModel.file_hash == file_hash)
+    )
+    image = result.scalar_one_or_none()
+
+    if not image:
+        raise HTTPException(status_code=404, detail="Image not found")
+
+    # Check if the request is from the same IP that uploaded the image
+    if image.ip_address != client_ip:
+        raise HTTPException(
+            status_code=403,
+            detail="You can only delete images you uploaded"
+        )
+
+    # Delete the physical file
+    file_path = UPLOAD_DIR / image.filename
+    if file_path.exists():
+        file_path.unlink()
+
+    # Delete thumbnail if exists
+    thumb_path = UPLOAD_DIR / "thumbs" / f"thumb_{image.filename}"
+    if thumb_path.exists():
+        thumb_path.unlink()
+
+    # Delete from Elasticsearch
+    try:
+        from elasticsearch_helper import es_client
+        await es_client.delete(index="images", id=image.id, ignore=[404])
+    except Exception as e:
+        print(f"Error deleting from Elasticsearch: {e}")
+
+    # Delete from database
+    await db.delete(image)
+
+    # Decrement upload count
+    limit_result = await db.execute(
+        select(UploadLimit).where(UploadLimit.ip_address == client_ip)
+    )
+    limit_record = limit_result.scalar_one_or_none()
+
+    if limit_record and limit_record.upload_count > 0:
+        limit_record.upload_count -= 1
+        await db.commit()
+
+    await db.commit()
+
+    return {
+        "message": "Image deleted successfully",
+        "file_hash": file_hash
+    }
