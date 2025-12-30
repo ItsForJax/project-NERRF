@@ -67,17 +67,28 @@ function SearchPage() {
   };
 
   const handleDeleteConfirm = async () => {
-    if (!selectedImage?.hash) return;
+    const fileHash = selectedImage?.file_hash || selectedImage?.hash;
 
+    if (!fileHash) {
+      console.error('No file hash found in image:', selectedImage);
+      alert('Cannot delete: file hash missing');
+      return;
+    }
+
+    console.log('Deleting image with hash:', fileHash);
     setDeleting(true);
     try {
-      const response = await fetch(`${API_URL}/delete/${selectedImage.hash}`, {
+      const response = await fetch(`${API_URL}/delete/${fileHash}`, {
         method: 'DELETE',
       });
 
+      console.log('Delete response:', response.status);
+
       if (response.ok) {
         // Remove from results
-        setResults(results.filter(img => img.hash !== selectedImage.hash));
+        setResults(results.filter(img =>
+          (img.file_hash || img.hash) !== fileHash
+        ));
         setSelectedImage(null);
         setShowDeleteConfirm(false);
       } else {
@@ -304,14 +315,14 @@ function SearchPage() {
                         </p>
                       </div>
                     )}
-                    {selectedImage.hash && (
+                    {(selectedImage.file_hash || selectedImage.hash) && (
                       <div className="p-4 bg-gray-50 dark:bg-gray-800 rounded-lg border-2 border-gray-200 dark:border-gray-700 shadow">
                         <div className="flex items-center gap-2 text-gray-500 dark:text-gray-400 text-sm mb-1">
                           <Hash className="h-4 w-4" />
                           <span>Hash</span>
                         </div>
                         <p className="font-mono text-xs truncate font-semibold text-gray-900 dark:text-gray-100">
-                          {selectedImage.hash}
+                          {selectedImage.file_hash || selectedImage.hash}
                         </p>
                       </div>
                     )}
@@ -333,61 +344,70 @@ function SearchPage() {
                   </div>
 
                   {/* Delete button */}
-                  {!showDeleteConfirm ? (
-                    <Button
-                      onClick={handleDeleteClick}
-                      variant="destructive"
-                      className="w-full bg-red-600 hover:bg-red-700"
-                      size="lg"
-                    >
-                      <Trash2 className="h-4 w-4 mr-2" />
-                      Delete Image
-                    </Button>
-                  ) : (
-                    <div className="space-y-3 p-4 bg-red-50 dark:bg-red-950/30 rounded-lg border-2 border-red-200 dark:border-red-800">
-                      <div className="flex items-start gap-3">
-                        <AlertTriangle className="h-5 w-5 text-red-600 dark:text-red-400 mt-0.5 flex-shrink-0" />
-                        <div>
-                          <p className="font-semibold text-red-900 dark:text-red-100">
-                            Are you sure you want to delete this image?
-                          </p>
-                          <p className="text-sm text-red-700 dark:text-red-300 mt-1">
-                            This action is permanent and cannot be undone. The image file will be deleted immediately.
-                          </p>
-                        </div>
-                      </div>
-                      <div className="flex gap-2">
-                        <Button
-                          onClick={handleDeleteConfirm}
-                          disabled={deleting}
-                          className="flex-1 bg-red-600 hover:bg-red-700"
-                        >
-                          {deleting ? (
-                            <>
-                              <Loader2 className="h-4 w-4 mr-2 animate-spin" />
-                              Deleting...
-                            </>
-                          ) : (
-                            <>
-                              <Trash2 className="h-4 w-4 mr-2" />
-                              Yes, Delete
-                            </>
-                          )}
-                        </Button>
-                        <Button
-                          onClick={() => setShowDeleteConfirm(false)}
-                          variant="outline"
-                          className="flex-1"
-                          disabled={deleting}
-                        >
-                          Cancel
-                        </Button>
-                      </div>
-                    </div>
-                  )}
+                  <Button
+                    onClick={handleDeleteClick}
+                    variant="destructive"
+                    className="w-full bg-red-600 hover:bg-red-700"
+                    size="lg"
+                  >
+                    <Trash2 className="h-4 w-4 mr-2" />
+                    Delete Image
+                  </Button>
                 </div>
               </>
             )}
+          </DialogContent>
+        </Dialog>
+
+        {/* Delete Confirmation Modal */}
+        <Dialog open={showDeleteConfirm} onOpenChange={setShowDeleteConfirm}>
+          <DialogContent className="sm:max-w-md bg-white dark:bg-gray-900">
+            <DialogHeader>
+              <DialogTitle className="flex items-center gap-2 text-red-600 dark:text-red-400">
+                <AlertTriangle className="h-6 w-6" />
+                Delete Image?
+              </DialogTitle>
+              <DialogDescription className="text-gray-600 dark:text-gray-400">
+                This action is permanent and cannot be undone.
+              </DialogDescription>
+            </DialogHeader>
+            <div className="space-y-4">
+              <div className="p-4 bg-red-50 dark:bg-red-950/50 rounded-lg border border-red-200 dark:border-red-800">
+                <p className="text-sm text-red-800 dark:text-red-200 font-medium mb-2">
+                  Are you sure you want to delete this image?
+                </p>
+                <p className="text-xs text-red-700 dark:text-red-300">
+                  The image file will be permanently deleted from the server immediately.
+                </p>
+              </div>
+              <div className="flex gap-2">
+                <Button
+                  onClick={handleDeleteConfirm}
+                  disabled={deleting}
+                  className="flex-1 bg-red-600 hover:bg-red-700"
+                >
+                  {deleting ? (
+                    <>
+                      <Loader2 className="h-4 w-4 mr-2 animate-spin" />
+                      Deleting...
+                    </>
+                  ) : (
+                    <>
+                      <Trash2 className="h-4 w-4 mr-2" />
+                      Yes, Delete
+                    </>
+                  )}
+                </Button>
+                <Button
+                  onClick={() => setShowDeleteConfirm(false)}
+                  variant="outline"
+                  className="flex-1"
+                  disabled={deleting}
+                >
+                  Cancel
+                </Button>
+              </div>
+            </div>
           </DialogContent>
         </Dialog>
       </div>
