@@ -32,11 +32,36 @@ const HomePage = () => {
   }, []);
 
   const techStack = [
-    { name: 'Nginx', icon: '🌐', color: 'text-green-500', desc: 'Reverse Proxy' },
-    { name: 'Elasticsearch', icon: '🔍', color: 'text-yellow-500', desc: 'Search Engine' },
-    { name: 'React', icon: '⚛️', color: 'text-blue-500', desc: 'Frontend' },
-    { name: 'Redis', icon: '📮', color: 'text-red-500', desc: 'Message Broker' },
-    { name: 'FastAPI', icon: '⚡', color: 'text-teal-500', desc: 'Backend API' },
+    {
+      name: 'Nginx',
+      logo: 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/nginx/nginx-original.svg',
+      color: 'text-green-500',
+      desc: 'Reverse Proxy'
+    },
+    {
+      name: 'Elasticsearch',
+      logo: 'https://cdn.jsdelivr.net/gh/devicons/devicon@latest/icons/elasticsearch/elasticsearch-original.svg',
+      color: 'text-yellow-500',
+      desc: 'Search Engine'
+    },
+    {
+      name: 'React',
+      logo: 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/react/react-original.svg',
+      color: 'text-blue-500',
+      desc: 'Frontend'
+    },
+    {
+      name: 'Redis',
+      logo: 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/redis/redis-original.svg',
+      color: 'text-red-500',
+      desc: 'Message Broker'
+    },
+    {
+      name: 'FastAPI',
+      logo: 'https://cdn.jsdelivr.net/gh/devicons/devicon/icons/fastapi/fastapi-original.svg',
+      color: 'text-teal-500',
+      desc: 'Backend API'
+    },
   ];
 
   const features = [
@@ -153,7 +178,13 @@ const HomePage = () => {
             {techStack.map((tech, index) => (
               <Card key={index} className="text-center hover:shadow-lg transition-shadow">
                 <CardContent className="pt-6">
-                  <div className={`text-5xl mb-3 ${tech.color}`}>{tech.icon}</div>
+                  <div className="flex justify-center mb-3">
+                    <img
+                      src={tech.logo}
+                      alt={tech.name}
+                      className="h-16 w-16 object-contain"
+                    />
+                  </div>
                   <h3 className="font-semibold text-lg mb-1">{tech.name}</h3>
                   <p className="text-sm text-muted-foreground">{tech.desc}</p>
                 </CardContent>
